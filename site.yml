@@ -1,0 +1,30 @@
+---
+# Playbook d'entree unique : applique "common" a tout le parc, puis
+# chaque role specifique a son groupe (= tag Bastion, voir
+# inventory/bastion_inventory.py). Un nouveau tag scaffolde par
+# scripts/scaffold_roles.py necessite d'ajouter son propre play
+# ci-dessous - les plays Ansible ne peuvent pas boucler sur des groupes
+# decouverts dynamiquement, donc pas d'automatisation possible ici.
+#
+# Usage :
+#   ansible-playbook site.yml               # tout le parc
+#   ansible-playbook site.yml --limit gpio   # une seule typologie
+#   ansible-playbook site.yml --check        # dry-run
+
+- name: Base commune a tout le parc
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Postes desktop
+  hosts: desktop
+  become: true
+  roles:
+    - desktop
+
+- name: Machines GPIO
+  hosts: gpio
+  become: true
+  roles:
+    - gpio

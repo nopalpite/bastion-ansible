@@ -81,6 +81,24 @@ ne touche jamais un role deja present :
 BASTION_URL=... BASTION_API_TOKEN=... ./scripts/scaffold_roles.py
 ```
 
+## Playbook
+
+`site.yml` relie inventaire et roles : `common` sur tout le parc, puis
+un play par typologie (`hosts: <tag>`). Un nouveau tag scaffolde par
+`scripts/scaffold_roles.py` doit etre ajoute a la main ici - les plays
+Ansible ne peuvent pas boucler sur des groupes decouverts dynamiquement.
+
+```bash
+ansible-playbook site.yml               # tout le parc
+ansible-playbook site.yml --limit gpio   # une seule typologie
+ansible-playbook site.yml --check        # dry-run
+```
+
+**Windows** : `ansible-playbook` ne tourne pas nativement sur Windows
+(limitation connue d'ansible-core, `os.get_blocking` non supporte) -
+utiliser WSL, ou attendre le conteneur du runner (Phase 4) qui contourne
+le probleme de fait.
+
 ## Etat actuel
 
 - [x] Bastion expose `GET /api/machines`
@@ -88,4 +106,6 @@ BASTION_URL=... BASTION_API_TOKEN=... ./scripts/scaffold_roles.py
 - [x] Cle SSH "automatisation" generee (distribution sur le parc encore a faire)
 - [x] Outillage de scaffold des roles (`scripts/scaffold_roles.py`)
 - [x] Premiers roles generes depuis Bastion : `common`, `desktop`, `gpio` (squelettes vides, taches a ecrire)
+- [x] Playbook d'entree (`site.yml`) reliant inventaire et roles
+- [ ] Contenu reel des roles (taches) - a definir : que doit faire `common`/`desktop`/`gpio` concretement ?
 - [ ] Execution du runner (conteneur, declenchement manuel puis programme)
