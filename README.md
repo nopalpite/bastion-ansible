@@ -42,6 +42,26 @@ des machines - jamais via Bastion. Toute connexion via cette cle est par
 construction un job Ansible, jamais une session humaine (utile pour
 l'audit).
 
+Cle generee (ed25519, sans passphrase - usage non-interactif dans des
+jobs) : `secrets/automation_ed25519` (+ `.pub`). **Jamais commitee**
+(tout `secrets/` est gitignore) - a sauvegarder ailleurs (gestionnaire
+de secrets, coffre-fort) des maintenant, une cle perdue = a regenerer et
+redistribuer partout.
+
+A injecter dans `~/.ssh/authorized_keys` de chaque machine du parc a
+l'imaging/provisioning (clef publique uniquement, ci-dessous) :
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKB+1TpyTG4tD2HYkwyK5F//9IinNcGr0lbqJ3am+HMc bastion-ansible-automation
+```
+
+Puis pointer Ansible dessus (`ansible.cfg` ou `-e ansible_ssh_private_key_file=...`) :
+
+```ini
+[defaults]
+private_key_file = ./secrets/automation_ed25519
+```
+
 ## Roles
 
 Un role par typologie de machine (tag), plus un role `common` (mises a
@@ -53,6 +73,6 @@ amont des roles specifiques. Structure classique Ansible :
 
 - [x] Bastion expose `GET /api/machines`
 - [x] Inventaire dynamique (`inventory/bastion_inventory.py`)
-- [ ] Cle SSH "automatisation" generee et distribuee
+- [x] Cle SSH "automatisation" generee (distribution sur le parc encore a faire)
 - [ ] Premiers roles (`common` + au moins une typologie)
 - [ ] Execution du runner (conteneur, declenchement manuel puis programme)

@@ -1,7 +1,9 @@
 # Cle SSH dediee a l'automatisation (Phase 3 de la roadmap) - jamais
-# commitee, distribuee separement de ce depot.
+# commitee, distribuee separement de ce depot. Tout le dossier plutot
+# qu'un motif de nom de fichier : plus sur, aucun risque qu'un futur
+# renommage de cle echappe au filtre.
+secrets/
 *.pem
-id_automation*
 
 # Etat local Ansible, rien a versionner.
 *.retry
