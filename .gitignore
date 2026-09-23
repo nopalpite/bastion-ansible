@@ -12,3 +12,7 @@ __pycache__/
 
 # BASTION_URL/BASTION_API_TOKEN locaux (docker compose) - voir .env.example.
 .env
+
+# Historique des runs (logs + index.yaml) genere par webui/app.py - etat
+# runtime, pas de l'infra-as-code.
+runs/

@@ -18,7 +18,7 @@ FROM python:3.12-slim
 RUN apt-get update -qq && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openssh-client git && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install --no-cache-dir ansible-core==2.17.*
+    pip install --no-cache-dir ansible-core==2.17.* flask==3.0.* pyyaml==6.0.*
 
 WORKDIR /repo
 COPY entrypoint.sh /entrypoint.sh
@@ -27,5 +27,11 @@ COPY site.yml ansible.cfg ./
 COPY roles/ roles/
 COPY inventory/ inventory/
 COPY scripts/ scripts/
+COPY webui/ webui/
+# Copie de reference pour le seed initial de roles/ dans un environnement
+# sans checkout local (ex: expolab) - voir webui/app.py:seed_roles_if_empty.
+# Jamais utilisee si roles/ est deja peuple (bind mount local, ou deja
+# seed lors d'un demarrage precedent).
+COPY roles/ /opt/roles-seed/
 
 ENTRYPOINT ["/entrypoint.sh"]

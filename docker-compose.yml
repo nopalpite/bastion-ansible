@@ -17,3 +17,19 @@ services:
     environment:
       - BASTION_URL
       - BASTION_API_TOKEN
+
+  # UI web (roles, declenchement, historique) - service supplementaire,
+  # pas un remplacement du runner CLI ci-dessus. Meme image, entrypoint
+  # different (lance Flask au lieu de ansible-playbook). Depot monte en
+  # LECTURE-ECRITURE ici (contrairement au :ro du runner) : editer un
+  # role via l'UI edite directement les fichiers du checkout git.
+  webui:
+    build: .
+    entrypoint: ["python3", "webui/app.py"]
+    ports:
+      - "5055:5055"
+    volumes:
+      - .:/repo:rw
+    environment:
+      - BASTION_URL
+      - BASTION_API_TOKEN

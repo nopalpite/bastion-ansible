@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>bastion-ansible</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>bastion-ansible</h1>
+        <p class="subtitle">Roles, execution et historique - parc reference dans Bastion</p>
+    </header>
+
+    <main>
+        <section class="panel" id="tags-panel" hidden>
+            <h2>Tags sans role</h2>
+            <p class="subtitle">Presents dans Bastion mais pas encore de role correspondant - "Scaffolder" cree le squelette (tasks/defaults/meta vides).</p>
+            <div id="tags-list"></div>
+        </section>
+
+        <section class="panel" id="bastion-error-panel" hidden>
+            <p class="status status-error" id="bastion-error-text"></p>
+        </section>
+
+        <section class="panel">
+            <h2>Lancer un run</h2>
+            <form id="run-form">
+                <div class="field">
+                    <label for="run-limit">Cible</label>
+                    <select id="run-limit" name="limit">
+                        <option value="">Tout le parc</option>
+                    </select>
+                </div>
+                <button type="submit" id="run-btn">Lancer</button>
+            </form>
+            <p id="run-status" class="status" hidden></p>
+        </section>
+
+        <section class="panel">
+            <h2>Historique des runs</h2>
+            <div id="runs-list">
+                <p class="empty">Chargement...</p>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Roles</h2>
+            <div id="roles-list">
+                <p class="empty">Chargement...</p>
+            </div>
+        </section>
+
+        <section class="panel" id="role-editor-panel" hidden>
+            <h2 id="role-editor-title">Modifier un role</h2>
+            <div class="role-file">
+                <label>tasks/main.yml</label>
+                <textarea id="file-tasks" spellcheck="false"></textarea>
+            </div>
+            <div class="role-file">
+                <label>defaults/main.yml</label>
+                <textarea id="file-defaults" spellcheck="false"></textarea>
+            </div>
+            <div class="role-file">
+                <label>meta/main.yml</label>
+                <textarea id="file-meta" spellcheck="false"></textarea>
+            </div>
+            <button type="button" id="role-save-btn">Enregistrer</button>
+            <button type="button" id="role-editor-close" class="secondary">Fermer</button>
+            <p id="role-editor-status" class="status" hidden></p>
+        </section>
+
+        <section class="panel" id="log-panel" hidden>
+            <h2 id="log-title">Log</h2>
+            <pre id="log-content"></pre>
+            <button type="button" id="log-close" class="secondary">Fermer</button>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

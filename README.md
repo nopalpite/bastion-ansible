@@ -130,6 +130,41 @@ Image publiee sur GHCR a chaque push sur `main` et a chaque tag
 `vX.Y.Z` (`.github/workflows/docker-build.yml`, meme structure que
 celui de Bastion) - `linux/amd64` + `linux/arm64`.
 
+## Interface web (`webui/`)
+
+Service supplementaire a cote du runner CLI ci-dessus - pas un
+remplacement, un conteneur en plus dans le meme `docker-compose.yml`
+(memes dependances : ansible-core, execute `ansible-playbook` lui-meme
+en subprocess). Permet, sans repasser par le CLI/SSH a chaque fois :
+
+- **Roles** : liste des roles locaux, editeur texte brut par fichier
+  (`tasks/main.yml`, `defaults/main.yml`, `meta/main.yml`), validation
+  YAML avant sauvegarde.
+- **Tags sans role** : detecte les tags Bastion sans role correspondant
+  (meme calcul que `scripts/scaffold_roles.py`), bouton "Scaffolder"
+  pour creer le squelette depuis l'UI.
+- **Runs** : declenche `site.yml` (tout le parc ou `--limit <tag>`),
+  historique avec statut et logs (`runs/index.yaml` + un fichier de log
+  par run, non versionnes).
+
+```bash
+docker compose up webui   # http://localhost:5055
+```
+
+En local, le depot est monte en **lecture-ecriture** (contrairement au
+`:ro` du runner) : editer un role via l'UI edite directement les
+fichiers du checkout git. Dans un environnement sans checkout (ex:
+expolab, qui consomme juste l'image publiee), `roles/` est seede une
+seule fois depuis une copie de reference bakee dans l'image
+(`/opt/roles-seed`, jamais touchee si `roles/` contient deja quelque
+chose).
+
+**Pas d'authentification** sur cette UI (comme les autres apps admin
+inspirees par ce depot) - elle peut executer des taches `become: true`
+contre tout le parc reference dans Bastion. A ne jamais exposer au-dela
+d'un reseau de confiance sans ajouter au moins une authentification
+basique devant.
+
 ## Etat actuel
 
 - [x] Bastion expose `GET /api/machines`
@@ -140,5 +175,7 @@ celui de Bastion) - `linux/amd64` + `linux/arm64`.
 - [x] Playbook d'entree (`site.yml`) reliant inventaire et roles
 - [x] Runner conteneurise, declenchement manuel (`docker compose run`)
 - [x] Pipeline docker-build.yml (GHCR, multi-arch)
+- [x] Valide de bout en bout dans expolab (inventaire, auth, become, execution reussis contre un faux Pi)
+- [x] Interface web (`webui/`) : roles, declenchement de runs, historique
 - [ ] Contenu reel des roles (taches) - a definir au fur et a mesure des tests de playbook
 - [ ] Programmation du runner (cron/scheduler) - si le besoin se confirme
