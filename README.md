@@ -96,8 +96,33 @@ ansible-playbook site.yml --check        # dry-run
 
 **Windows** : `ansible-playbook` ne tourne pas nativement sur Windows
 (limitation connue d'ansible-core, `os.get_blocking` non supporte) -
-utiliser WSL, ou attendre le conteneur du runner (Phase 4) qui contourne
-le probleme de fait.
+utiliser WSL, ou le conteneur ci-dessous qui contourne le probleme de
+fait.
+
+## Runner (conteneur)
+
+Declenchement manuel pour l'instant (`docker compose run`, pas de
+demon) - programmation (cron/scheduler) plus tard si le besoin se
+confirme. Le depot est monte en volume (lecture seule), jamais copie a
+l'image : editer un role/playbook prend effet immediatement, pas de
+rebuild.
+
+```bash
+cp .env.example .env   # renseigner BASTION_URL/BASTION_API_TOKEN
+docker compose run --rm runner                    # tout le parc
+docker compose run --rm runner --limit gpio        # une seule typologie
+docker compose run --rm runner --check             # dry-run
+```
+
+La cle privee (`secrets/automation_ed25519`) est copiee dans le
+conteneur avec les bonnes permissions avant chaque run
+(`entrypoint.sh`) - un bind mount depuis Windows/Docker Desktop expose
+souvent les fichiers avec des permissions trop ouvertes, que ssh
+refuserait telles quelles.
+
+Image publiee sur GHCR a chaque push sur `main` et a chaque tag
+`vX.Y.Z` (`.github/workflows/docker-build.yml`, meme structure que
+celui de Bastion) - `linux/amd64` + `linux/arm64`.
 
 ## Etat actuel
 
@@ -107,5 +132,7 @@ le probleme de fait.
 - [x] Outillage de scaffold des roles (`scripts/scaffold_roles.py`)
 - [x] Premiers roles generes depuis Bastion : `common`, `desktop`, `gpio` (squelettes vides, taches a ecrire)
 - [x] Playbook d'entree (`site.yml`) reliant inventaire et roles
-- [ ] Contenu reel des roles (taches) - a definir : que doit faire `common`/`desktop`/`gpio` concretement ?
-- [ ] Execution du runner (conteneur, declenchement manuel puis programme)
+- [x] Runner conteneurise, declenchement manuel (`docker compose run`)
+- [x] Pipeline docker-build.yml (GHCR, multi-arch)
+- [ ] Contenu reel des roles (taches) - a definir au fur et a mesure des tests de playbook
+- [ ] Programmation du runner (cron/scheduler) - si le besoin se confirme

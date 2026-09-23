@@ -1,0 +1,13 @@
+# Runner Ansible - declenchement manuel pour l'instant (Phase 4 de la
+# roadmap) : `docker compose run --rm runner [args ansible-playbook]`.
+# Pas de "up -d" : ce service est concu pour etre lance a la demande, pas
+# comme un daemon. Programmation (cron/scheduler) viendra plus tard si le
+# besoin se confirme.
+services:
+  runner:
+    build: .
+    volumes:
+      - .:/repo:ro
+    environment:
+      - BASTION_URL
+      - BASTION_API_TOKEN

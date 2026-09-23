@@ -9,3 +9,6 @@ secrets/
 *.retry
 .vault_pass*
 __pycache__/
+
+# BASTION_URL/BASTION_API_TOKEN locaux (docker compose) - voir .env.example.
+.env
