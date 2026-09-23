@@ -7,7 +7,6 @@ la main pour la partie plays.
 
 Usage: ./scripts/render_site_yml.py [order.yaml] [site.yml]
 """
-import os
 import sys
 from pathlib import Path
 
@@ -52,11 +51,13 @@ def render(order: list[str]) -> str:
 
 
 def render_to_file(order: list[str], site_path: Path = DEFAULT_SITE_PATH) -> None:
-    # Ecriture atomique - meme precaution que partout ailleurs dans ce
-    # depot (evite un site.yml tronque si le process est interrompu).
-    tmp_path = site_path.with_suffix(".tmp")
-    tmp_path.write_text(render(order))
-    os.replace(tmp_path, site_path)
+    # Ecriture directe (pas de tmp+rename) : site.yml peut etre un bind
+    # mount Docker sur un seul fichier (ex: expolab) - y remplacer
+    # l'inode cible via os.replace() echoue avec EBUSY ("Device or
+    # resource busy"), le mount ne pouvant pas etre substitue. Ecrire
+    # dans le fichier existant fonctionne dans tous les cas (mount de
+    # fichier, mount de dossier, ou checkout local).
+    site_path.write_text(render(order))
 
 
 def main() -> None:

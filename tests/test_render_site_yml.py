@@ -45,3 +45,27 @@ def test_render_to_file_writes_valid_yaml(tmp_path):
     plays = yaml.safe_load(site_path.read_text())
     assert len(plays) == 2
     assert plays[1]["hosts"] == "kiosk"
+
+
+def test_render_to_file_never_renames_onto_the_target(tmp_path, monkeypatch):
+    # Regression : site.yml peut etre un bind mount Docker sur un seul
+    # fichier (ex: expolab) - remplacer l'inode cible (tmp+rename) y
+    # echoue avec EBUSY, le mount ne pouvant pas etre substitue.
+    # render_to_file doit ecrire dans le fichier existant, jamais tenter
+    # de le remplacer - simule l'echec pour verifier qu'il n'est jamais
+    # appele.
+    import os
+    from pathlib import Path
+
+    site_path = tmp_path / "site.yml"
+    site_path.write_text("contenu precedent")
+
+    def fail_replace(*args, **kwargs):
+        raise OSError(16, "Device or resource busy")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    monkeypatch.setattr(os, "replace", fail_replace)
+    render_site_yml.render_to_file(["desktop"], site_path)
+
+    plays = yaml.safe_load(site_path.read_text())
+    assert plays[0]["hosts"] == "desktop"

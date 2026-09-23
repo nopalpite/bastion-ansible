@@ -55,6 +55,28 @@ def test_scaffold_does_not_duplicate_order_entry(tmp_path, monkeypatch):
     assert scaffold_roles.load_order() == ["kiosk"]
 
 
+def test_scaffold_succeeds_when_order_yaml_cannot_be_renamed(tmp_path, monkeypatch):
+    # Regression : order.yaml peut etre un bind mount Docker sur un seul
+    # fichier (ex: expolab) - remplacer l'inode cible (tmp+rename) y
+    # echoue avec EBUSY. scaffold() (via save_order) doit ecrire dans le
+    # fichier existant, jamais tenter de le remplacer.
+    import os
+    from pathlib import Path
+
+    patch_paths(tmp_path, monkeypatch)
+    (tmp_path / "order.yaml").write_text("order: []\n")
+
+    def fail_replace(*args, **kwargs):
+        raise OSError(16, "Device or resource busy")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    monkeypatch.setattr(os, "replace", fail_replace)
+
+    scaffold_roles.scaffold("kiosk")
+
+    assert scaffold_roles.load_order() == ["kiosk"]
+
+
 def test_main_scaffolds_tags_from_api(tmp_path, monkeypatch):
     patch_paths(tmp_path, monkeypatch)
     monkeypatch.setattr(

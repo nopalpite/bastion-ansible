@@ -13,7 +13,6 @@ existants), se contente d'ajouter ce qui manque.
 Usage:
     BASTION_URL=... BASTION_API_TOKEN=... ./scripts/scaffold_roles.py
 """
-import os
 import sys
 from pathlib import Path
 
@@ -49,9 +48,13 @@ def load_order() -> list[str]:
 
 
 def save_order(order: list[str]) -> None:
-    tmp_path = ORDER_PATH.with_suffix(".tmp")
-    tmp_path.write_text(yaml.safe_dump({"order": order}, sort_keys=False))
-    os.replace(tmp_path, ORDER_PATH)
+    # Ecriture directe (pas de tmp+rename) : order.yaml peut etre un bind
+    # mount Docker sur un seul fichier (ex: expolab) - y remplacer
+    # l'inode cible via os.replace() echoue avec EBUSY ("Device or
+    # resource busy"), le mount ne pouvant pas etre substitue. Ecrire
+    # dans le fichier existant fonctionne dans tous les cas (mount de
+    # fichier, mount de dossier, ou checkout local).
+    ORDER_PATH.write_text(yaml.safe_dump({"order": order}, sort_keys=False))
 
 
 def scaffold(role: str) -> None:

@@ -110,6 +110,15 @@ prealable). Le webui (page "Ordre d'execution") permet de reordonner
 sans toucher a aucun fichier a la main - regenere `site.yml`
 automatiquement a chaque changement.
 
+**Piege bind mount Docker** : `save_order()`/`render_to_file()` ecrivent
+directement dans le fichier existant (jamais de tmp+rename/`os.replace`)
+- si `order.yaml`/`site.yml` sont montes individuellement comme des
+fichiers (cas d'expolab, contrairement a `roles/`, monte comme un
+dossier), remplacer l'inode cible echoue avec `EBUSY` ("Device or
+resource busy"), le mount ne pouvant pas etre substitue. Deja rencontre
+en pratique : `scaffold()` creait le role mais plantait avant de mettre
+a jour `order.yaml`, desynchronisant les deux.
+
 ```bash
 ansible-playbook site.yml               # tout le parc
 ansible-playbook site.yml --limit gpio   # une seule typologie
