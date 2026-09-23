@@ -69,10 +69,22 @@ jour de securite, agent de supervision...) applique a tout le parc en
 amont des roles specifiques. Structure classique Ansible :
 `roles/<typologie>/`.
 
+Les roles suivent les tags **reels** presents dans Bastion plutot que
+d'etre maintenus a la main en parallele (meme logique que l'inventaire :
+une seule source de verite). `scripts/scaffold_roles.py` interroge
+`GET /api/machines`, calcule les tags via la meme logique que
+l'inventaire (`bastion_inventory.build_inventory`), et cree le squelette
+(`tasks/`, `defaults/`, `meta/`) de tout role manquant - idempotent,
+ne touche jamais un role deja present :
+
+```bash
+BASTION_URL=... BASTION_API_TOKEN=... ./scripts/scaffold_roles.py
+```
+
 ## Etat actuel
 
 - [x] Bastion expose `GET /api/machines`
 - [x] Inventaire dynamique (`inventory/bastion_inventory.py`)
 - [x] Cle SSH "automatisation" generee (distribution sur le parc encore a faire)
-- [ ] Premiers roles (`common` + au moins une typologie)
+- [x] Outillage de scaffold des roles (`scripts/scaffold_roles.py`) - a executer contre le vrai Bastion pour generer les premiers roles
 - [ ] Execution du runner (conteneur, declenchement manuel puis programme)
