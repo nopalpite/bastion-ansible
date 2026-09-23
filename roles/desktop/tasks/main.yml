@@ -1,7 +1,7 @@
 ---
-- name: Installer sway et wayvnc
+- name: Installer sway, wayvnc et un terminal (foot)
   ansible.builtin.apt:
-    name: [sway, wayvnc]
+    name: [sway, wayvnc, foot]
     state: present
     update_cache: true
 
@@ -20,6 +20,11 @@
     content: |
       output HEADLESS-1 resolution 1280x720
       exec wayvnc 0.0.0.0 5900
+      # Un terminal au demarrage - sans ca, sway tourne mais l'ecran
+      # reste gris uni (aucun fond d'ecran ni fenetre par defaut), rien
+      # ne prouve visuellement que le compositeur repond.
+      exec foot
+  notify: Redemarrer sway-headless
 
 - name: Deployer le service systemd sway headless
   ansible.builtin.template:

@@ -6,9 +6,16 @@ After=network.target
 Type=simple
 User={{ ansible_user }}
 Environment=WLR_BACKENDS=headless
-Environment=XDG_RUNTIME_DIR=/run/user/%U
-ExecStartPre=/bin/mkdir -p /run/user/%U
-ExecStartPre=/bin/chown %U:%U /run/user/%U
+Environment=XDG_RUNTIME_DIR=/run/sway-headless
+# RuntimeDirectory= (natif systemd) plutot que mkdir/chown manuels via
+# ExecStartPre : cree /run/sway-headless avec les bons owner/permissions
+# automatiquement, le nettoie a l'arret. Le specifier %U (UID numerique
+# de User=) s'est avere resoudre a 0 (root) dans ExecStartPre sur ce
+# systeme (systemd 252, conteneur Incus) - mkdir -p /run/user/0 echouait
+# donc en permission refusee. RuntimeDirectory= evite le probleme
+# entierement, pas de specifier a resoudre.
+RuntimeDirectory=sway-headless
+RuntimeDirectoryMode=0700
 ExecStart=/usr/bin/sway
 Restart=on-failure
 
