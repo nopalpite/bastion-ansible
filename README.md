@@ -4,6 +4,11 @@ Gestion du parc (push, Ansible) par-dessus l'inventaire deja maintenu
 dans [Bastion](https://github.com/nopalpite/bastion) - voir la roadmap
 complete pour le contexte et les decisions prises.
 
+Depot Ansible classique : inventaire dynamique + roles + un script pour
+generer le playbook d'entree. Pas d'image Docker, pas d'UI - l'edition
+passe par git/votre editeur, le declenchement/historique par
+[Semaphore UI](#executeur--semaphore-ui) (voir plus bas).
+
 ## Pourquoi un depot separe de Bastion
 
 Bastion gere l'acces interactif a la demande (un humain, une session
@@ -17,7 +22,10 @@ il interroge `GET /api/machines` a chaque run.
 
 `inventory/bastion_inventory.py` interroge l'API Bastion et groupe les
 machines **par tag** (un groupe Ansible = un tag Bastion - une machine
-avec plusieurs tags appartient a plusieurs groupes).
+avec plusieurs tags appartient a plusieurs groupes). Executable (`+x`) :
+Ansible le traite nativement comme un inventaire dynamique des qu'on le
+passe en `-i` - aucune configuration Semaphore-specifique necessaire au
+dela de pointer l'Inventory dessus (voir plus bas).
 
 Variables d'environnement requises :
 
@@ -32,35 +40,25 @@ Verifier que l'inventaire se construit correctement :
 ansible-inventory --list
 ```
 
-## Authentification SSH du runner
+## Authentification SSH (cle "automatisation")
 
 Bastion n'expose **jamais** les identifiants via son API (choix de
-securite assume). Ce depot n'authentifie donc pas ses connexions SSH via
-Bastion : il utilise sa **propre cle dediee "automatisation"**, generee
-a part et injectee dans `authorized_keys` a l'imaging/au provisioning
-des machines - jamais via Bastion. Toute connexion via cette cle est par
+securite assume). Ce depot n'authentifie donc jamais ses connexions SSH
+via Bastion : une **cle dediee "automatisation"**, generee a part et
+injectee dans `authorized_keys` a l'imaging/au provisioning des
+machines - jamais via Bastion. Toute connexion via cette cle est par
 construction un job Ansible, jamais une session humaine (utile pour
 l'audit).
 
 Cle generee (ed25519, sans passphrase - usage non-interactif dans des
 jobs) : `secrets/automation_ed25519` (+ `.pub`). **Jamais commitee**
-(tout `secrets/` est gitignore) - a sauvegarder ailleurs (gestionnaire
-de secrets, coffre-fort) des maintenant, une cle perdue = a regenerer et
-redistribuer partout.
+(tout `secrets/` est gitignore) - a importer dans le Key Store de
+Semaphore (voir plus bas), et a sauvegarder ailleurs (gestionnaire de
+secrets, coffre-fort), une cle perdue = a regenerer et redistribuer
+partout.
 
 A injecter dans `~/.ssh/authorized_keys` de chaque machine du parc a
-l'imaging/provisioning (clef publique uniquement, ci-dessous) :
-
-```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKB+1TpyTG4tD2HYkwyK5F//9IinNcGr0lbqJ3am+HMc bastion-ansible-automation
-```
-
-Puis pointer Ansible dessus (`ansible.cfg` ou `-e ansible_ssh_private_key_file=...`) :
-
-```ini
-[defaults]
-private_key_file = ./secrets/automation_ed25519
-```
+l'imaging/provisioning (clef publique uniquement).
 
 ## Roles
 
@@ -105,19 +103,9 @@ prochain scaffold/reordonnancement :
 ```
 
 `order.yaml` reste git-tracked (comme `site.yml`, qui continue de
-fonctionner des un checkout frais sans etape de generation
-prealable). Le webui (page "Ordre d'execution") permet de reordonner
-sans toucher a aucun fichier a la main - regenere `site.yml`
-automatiquement a chaque changement.
-
-**Piege bind mount Docker** : `save_order()`/`render_to_file()` ecrivent
-directement dans le fichier existant (jamais de tmp+rename/`os.replace`)
-- si `order.yaml`/`site.yml` sont montes individuellement comme des
-fichiers (cas d'expolab, contrairement a `roles/`, monte comme un
-dossier), remplacer l'inode cible echoue avec `EBUSY` ("Device or
-resource busy"), le mount ne pouvant pas etre substitue. Deja rencontre
-en pratique : `scaffold()` creait le role mais plantait avant de mettre
-a jour `order.yaml`, desynchronisant les deux.
+fonctionner des un checkout frais sans etape de generation prealable).
+Reordonner = editer `order.yaml` a la main puis regenerer, `git commit`,
+`git push` - comme n'importe quel autre changement de ce depot.
 
 ```bash
 ansible-playbook site.yml               # tout le parc
@@ -127,85 +115,45 @@ ansible-playbook site.yml --check        # dry-run
 
 **Windows** : `ansible-playbook` ne tourne pas nativement sur Windows
 (limitation connue d'ansible-core, `os.get_blocking` non supporte) -
-utiliser WSL, ou le conteneur ci-dessous qui contourne le probleme de
-fait.
+utiliser WSL, ou laisser Semaphore executer (conteneur Linux).
 
-## Runner (conteneur)
+## Executeur : Semaphore UI
 
-Declenchement manuel pour l'instant (`docker compose run`, pas de
-demon) - programmation (cron/scheduler) plus tard si le besoin se
-confirme.
+Le declenchement (manuel/programme) et l'historique des runs passent
+par [Semaphore UI](https://semaphoreui.com) (auto-heberge, projet
+separe) plutot que par un outil maison - AWX ecarte comme trop lourd
+pour un parc de cette taille, Semaphore est le bon calibre (un seul
+binaire/image Docker, SQLite, pas de Postgres/Redis a operer).
 
-L'image publiee **integre deja** `site.yml`/`roles/`/`inventory/`/`scripts/`
-(copies par le Dockerfile) - elle est utilisable seule, sans checkout de
-ce depot (cas d'un deploiement qui consomme juste l'image, ex: expolab).
-En local, `docker-compose.yml` monte quand meme le depot par-dessus
-(bind mount, prioritaire sur le contenu de l'image) : editer un
-role/playbook prend effet immediatement, pas de rebuild - les deux
-usages cohabitent sans rien reconfigurer.
+Semaphore clone ce depot lui-meme a chaque run (pas d'image Docker a
+publier depuis ce depot). Pointe sur le mirroir git local du lab
+(`git-mirror`), pas directement sur GitHub - sync manuel sur le mirroir
+avant chaque campagne de deploiement.
 
-```bash
-cp .env.example .env   # renseigner BASTION_URL/BASTION_API_TOKEN
-docker compose run --rm runner                    # tout le parc
-docker compose run --rm runner --limit gpio        # une seule typologie
-docker compose run --rm runner --check             # dry-run
-```
+Configuration initiale (etape manuelle unique dans l'UI Semaphore, comme
+la configuration de l'environnement Dockhand dans expolab) :
 
-La cle privee (`secrets/automation_ed25519`) est copiee dans le
-conteneur avec les bonnes permissions avant chaque run
-(`entrypoint.sh`) - un bind mount depuis Windows/Docker Desktop expose
-souvent les fichiers avec des permissions trop ouvertes, que ssh
-refuserait telles quelles.
+1. **Repository** -> URL du mirroir `git-mirror` (branche `main`,
+   Access Key = None si le mirroir n'est pas prive).
+2. **Key Store** -> importer `secrets/automation_ed25519` (SSH,
+   utilisateur cible selon la machine - `pi` dans le lab expolab).
+3. **Inventory** -> type `file`, chemin `inventory/bastion_inventory.py`,
+   credential = la cle SSH ci-dessus.
+4. **Variable Group** -> `BASTION_URL`, `BASTION_API_TOKEN` (memes
+   valeurs que cote Bastion), plus toute variable specifique a
+   l'environnement (ex: `ANSIBLE_HOST_KEY_CHECKING=false` dans le lab,
+   ou faux Pi recrees souvent).
+5. **Task Template** -> playbook `site.yml`, extra vars si besoin (ex:
+   `ansible_become_pass=...` pour un environnement ou le mot de passe
+   sudo est connu/partage).
+6. Lancer une fois depuis l'UI pour valider, puis eventuellement une
+   **Schedule** (cron) pour de l'execution programmee.
 
-Image publiee sur GHCR a chaque push sur `main` et a chaque tag
-`vX.Y.Z` (`.github/workflows/docker-build.yml`, meme structure que
-celui de Bastion) - `linux/amd64` + `linux/arm64`.
-
-## Interface web (`webui/`)
-
-Service supplementaire a cote du runner CLI ci-dessus - pas un
-remplacement, un conteneur en plus dans le meme `docker-compose.yml`
-(memes dependances : ansible-core, execute `ansible-playbook` lui-meme
-en subprocess). Permet, sans repasser par le CLI/SSH a chaque fois :
-
-- **Roles** : liste des roles locaux, editeur texte brut pour **n'importe
-  quel fichier du role** (pas seulement `tasks/main.yml` - `handlers/`,
-  `templates/*.j2`, `vars/`, etc.), creation/suppression de fichier
-  depuis l'UI (chemin relatif libre), validation YAML avant sauvegarde
-  pour les fichiers `.yml`/`.yaml` uniquement (un `.j2` n'est pas du
-  YAML, pas de validation forcee dessus).
-- **Tags sans role** : detecte les tags Bastion sans role correspondant
-  (meme calcul que `scripts/scaffold_roles.py`), bouton "Scaffolder"
-  pour creer le squelette depuis l'UI.
-- **Ordre d'execution** : reordonne `order.yaml` (boutons monter/descendre
-  par role), regenere `site.yml` automatiquement a chaque changement.
-- **Runs** : declenche `site.yml` (tout le parc ou `--limit <tag>`),
-  historique avec statut et logs (`runs/index.yaml` + un fichier de log
-  par run, non versionnes).
-
-```bash
-docker compose up webui   # http://localhost:5055
-```
-
-`BASTION_ANSIBLE_EXTRA_ARGS` (optionnelle) : arguments supplementaires
-ajoutes a chaque run declenche par l'UI (ex: `--extra-vars
-ansible_become_pass=...` pour un environnement de demo au mot de passe
-sudo connu/partage) - jamais de valeur par defaut dans ce depot,
-uniquement ce qu'un deploiement fournit via son propre environnement.
-
-En local, le depot est monte en **lecture-ecriture** (contrairement au
-`:ro` du runner) : editer un role via l'UI edite directement les
-fichiers du checkout git. Dans un environnement sans checkout (ex:
-expolab, qui consomme juste l'image publiee), `roles/` est seede une
-seule fois depuis une copie de reference bakee dans l'image
-(`/opt/roles-seed`, jamais touchee si `roles/` contient deja quelque
-chose).
-
-**Pas d'authentification** sur cette UI (comme les autres apps admin
-inspirees par ce depot) - elle peut executer des taches `become: true`
-contre tout le parc reference dans Bastion. A ne jamais exposer au-dela
-d'un reseau de confiance sans ajouter au moins une authentification
-basique devant.
+L'API Semaphore (`Authorization: Bearer <token>`,
+`POST /api/project/{id}/tasks {"template_id": N}`) permet de declencher
+une tache par programme - pas branche automatiquement sur le sync du
+mirroir pour l'instant (sync manuel assume), possible amelioration
+future.
 
 ## Etat actuel
 
@@ -214,11 +162,8 @@ basique devant.
 - [x] Cle SSH "automatisation" generee (distribution sur le parc encore a faire)
 - [x] Outillage de scaffold des roles (`scripts/scaffold_roles.py`)
 - [x] Premiers roles generes depuis Bastion : `desktop`, `gpio` (squelettes vides, taches a ecrire)
-- [x] Playbook d'entree (`site.yml`) reliant inventaire et roles
-- [x] Runner conteneurise, declenchement manuel (`docker compose run`)
-- [x] Pipeline docker-build.yml (GHCR, multi-arch)
+- [x] Playbook d'entree (`site.yml`) reliant inventaire et roles, ordre configurable (`order.yaml`)
 - [x] Valide de bout en bout dans expolab (inventaire, auth, become, execution reussis contre un faux Pi)
-- [x] Interface web (`webui/`) : roles, declenchement de runs, historique
-- [x] Ordre d'execution configurable (`order.yaml` -> `site.yml` genere), editable depuis l'UI
+- [x] Executeur Semaphore UI (deploiement + configuration cote expolab)
 - [ ] Contenu reel des roles (taches) - a definir au fur et a mesure des tests de playbook
-- [ ] Programmation du runner (cron/scheduler) - si le besoin se confirme
+- [ ] Brancher l'API Semaphore sur un sync reussi du mirroir (optionnel)
