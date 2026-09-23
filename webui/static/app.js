@@ -1,5 +1,11 @@
 let currentRole = null;
 
+function encodePath(path) {
+    // Encode chaque segment separement (pas la chaine entiere, qui
+    // encoderait aussi les "/" et casserait le routage cote serveur).
+    return path.split("/").map(encodeURIComponent).join("/");
+}
+
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g, "&amp;")
@@ -94,67 +100,131 @@ async function scaffoldTag(tag) {
     loadOrder();
 }
 
+let currentFilePath = null;
+
 async function openRoleEditor(role) {
     currentRole = role;
+    currentFilePath = null;
+    document.getElementById("role-file-editor").hidden = true;
     const panel = document.getElementById("role-editor-panel");
     const title = document.getElementById("role-editor-title");
     const status = document.getElementById("role-editor-status");
     status.hidden = true;
     title.textContent = `Modifier '${role}'`;
 
-    const res = await fetch(`/api/roles/${encodeURIComponent(role)}/files`);
+    await loadRoleFilesList();
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function loadRoleFilesList() {
+    const list = document.getElementById("role-files-list");
+    const res = await fetch(`/api/roles/${encodeURIComponent(currentRole)}/files`);
     const data = await res.json();
     if (!res.ok) {
         alert(data.error || "Erreur de chargement du role");
         return;
     }
-    document.getElementById("file-tasks").value = data.files.tasks;
-    document.getElementById("file-defaults").value = data.files.defaults;
-    document.getElementById("file-meta").value = data.files.meta;
-    panel.hidden = false;
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    const files = data.files || [];
+    if (!files.length) {
+        list.innerHTML = '<p class="empty">Aucun fichier</p>';
+        return;
+    }
+    list.innerHTML = files.map(path => `
+        <div class="card">
+            <div class="card-title"><code>${escapeHtml(path)}</code></div>
+            <div class="card-actions">
+                <button class="secondary" data-open-file="${escapeHtml(path)}">Ouvrir</button>
+            </div>
+        </div>
+    `).join("");
+    list.querySelectorAll("button[data-open-file]").forEach(btn => {
+        btn.addEventListener("click", () => openRoleFile(btn.dataset.openFile));
+    });
+}
+
+async function openRoleFile(path) {
+    const res = await fetch(`/api/roles/${encodeURIComponent(currentRole)}/file/${encodePath(path)}`);
+    const data = await res.json();
+    if (!res.ok) {
+        alert(data.error || "Erreur de chargement du fichier");
+        return;
+    }
+    currentFilePath = path;
+    document.getElementById("role-file-editor-label").textContent = path;
+    document.getElementById("role-file-editor-content").value = data.content;
+    document.getElementById("role-file-editor").hidden = false;
+    document.getElementById("role-editor-status").hidden = true;
 }
 
 document.getElementById("role-editor-close").addEventListener("click", () => {
     document.getElementById("role-editor-panel").hidden = true;
     currentRole = null;
+    currentFilePath = null;
 });
 
-document.getElementById("role-save-btn").addEventListener("click", async () => {
-    if (!currentRole) return;
-    const btn = document.getElementById("role-save-btn");
+document.getElementById("role-new-file-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("role-new-file-path");
+    const path = input.value.trim().replace(/^\/+/, "");
+    if (!path) return;
+
+    const res = await fetch(`/api/roles/${encodeURIComponent(currentRole)}/file/${encodePath(path)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "" }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        alert(data.error || "Erreur");
+        return;
+    }
+    input.value = "";
+    await loadRoleFilesList();
+    openRoleFile(path);
+});
+
+document.getElementById("role-file-save-btn").addEventListener("click", async () => {
+    if (!currentRole || !currentFilePath) return;
+    const btn = document.getElementById("role-file-save-btn");
     const status = document.getElementById("role-editor-status");
     btn.disabled = true;
     status.hidden = true;
 
-    const files = {
-        tasks: document.getElementById("file-tasks").value,
-        defaults: document.getElementById("file-defaults").value,
-        meta: document.getElementById("file-meta").value,
-    };
-
-    const errors = [];
-    for (const [key, content] of Object.entries(files)) {
-        const res = await fetch(`/api/roles/${encodeURIComponent(currentRole)}/files/${key}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content }),
-        });
-        if (!res.ok) {
-            const data = await res.json();
-            errors.push(`${key}: ${data.error || "erreur"}`);
-        }
-    }
+    const content = document.getElementById("role-file-editor-content").value;
+    const res = await fetch(`/api/roles/${encodeURIComponent(currentRole)}/file/${encodePath(currentFilePath)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+    });
+    const data = await res.json();
 
     status.hidden = false;
-    if (errors.length) {
+    if (!res.ok) {
         status.className = "status status-error";
-        status.textContent = errors.join("\n");
+        status.textContent = data.error || "Erreur";
     } else {
         status.className = "status status-ok";
         status.textContent = "Enregistre.";
     }
     btn.disabled = false;
+});
+
+document.getElementById("role-file-delete-btn").addEventListener("click", async () => {
+    if (!currentRole || !currentFilePath) return;
+    if (!confirm(`Supprimer '${currentFilePath}' ?`)) return;
+
+    const res = await fetch(`/api/roles/${encodeURIComponent(currentRole)}/file/${encodePath(currentFilePath)}`, {
+        method: "DELETE",
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        alert(data.error || "Erreur");
+        return;
+    }
+    currentFilePath = null;
+    document.getElementById("role-file-editor").hidden = true;
+    await loadRoleFilesList();
 });
 
 async function loadOrder() {

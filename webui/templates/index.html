@@ -62,20 +62,27 @@
 
         <section class="panel" id="role-editor-panel" hidden>
             <h2 id="role-editor-title">Modifier un role</h2>
-            <div class="role-file">
-                <label>tasks/main.yml</label>
-                <textarea id="file-tasks" spellcheck="false"></textarea>
+
+            <div id="role-files-list" class="card-list"></div>
+
+            <form id="role-new-file-form">
+                <div class="field">
+                    <label for="role-new-file-path">Nouveau fichier (chemin relatif)</label>
+                    <input type="text" id="role-new-file-path" placeholder="templates/mon-service.j2" required>
+                </div>
+                <button type="submit">Creer</button>
+            </form>
+
+            <div id="role-file-editor" hidden>
+                <div class="role-file">
+                    <label id="role-file-editor-label"></label>
+                    <textarea id="role-file-editor-content" spellcheck="false"></textarea>
+                </div>
+                <button type="button" id="role-file-save-btn">Enregistrer</button>
+                <button type="button" id="role-file-delete-btn" class="danger">Supprimer ce fichier</button>
             </div>
-            <div class="role-file">
-                <label>defaults/main.yml</label>
-                <textarea id="file-defaults" spellcheck="false"></textarea>
-            </div>
-            <div class="role-file">
-                <label>meta/main.yml</label>
-                <textarea id="file-meta" spellcheck="false"></textarea>
-            </div>
-            <button type="button" id="role-save-btn">Enregistrer</button>
-            <button type="button" id="role-editor-close" class="secondary">Fermer</button>
+
+            <button type="button" id="role-editor-close" class="secondary">Fermer le role</button>
             <p id="role-editor-status" class="status" hidden></p>
         </section>
 

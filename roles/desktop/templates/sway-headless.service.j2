@@ -1,0 +1,16 @@
+[Unit]
+Description=Sway headless (VNC via wayvnc)
+After=network.target
+
+[Service]
+Type=simple
+User={{ ansible_user }}
+Environment=WLR_BACKENDS=headless
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+ExecStartPre=/bin/mkdir -p /run/user/%U
+ExecStartPre=/bin/chown %U:%U /run/user/%U
+ExecStart=/usr/bin/sway
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

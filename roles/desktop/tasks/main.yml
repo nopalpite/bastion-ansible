@@ -1,2 +1,35 @@
 ---
-# Taches pour le role desktop
+- name: Installer sway et wayvnc
+  ansible.builtin.apt:
+    name: [sway, wayvnc]
+    state: present
+    update_cache: true
+
+- name: Creer le dossier de config sway
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.config/sway"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Deployer la config sway (ecran virtuel + wayvnc au demarrage)
+  ansible.builtin.copy:
+    dest: "/home/{{ ansible_user }}/.config/sway/config"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    content: |
+      output HEADLESS-1 resolution 1280x720
+      exec wayvnc 0.0.0.0 5900
+
+- name: Deployer le service systemd sway headless
+  ansible.builtin.template:
+    src: sway-headless.service.j2
+    dest: /etc/systemd/system/sway-headless.service
+  notify: Redemarrer sway-headless
+
+- name: Activer et demarrer sway-headless
+  ansible.builtin.systemd:
+    name: sway-headless
+    enabled: true
+    state: started
+    daemon_reload: true

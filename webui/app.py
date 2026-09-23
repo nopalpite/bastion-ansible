@@ -46,11 +46,7 @@ SSH_KEY_RUN = Path("/tmp/automation_ed25519")
 
 TAG_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 ROLE_NAME_RE = re.compile(r"^[a-zA-Z0-9_]{1,64}$")
-ROLE_FILE_KEYS = {
-    "tasks": "tasks/main.yml",
-    "defaults": "defaults/main.yml",
-    "meta": "meta/main.yml",
-}
+YAML_EXTENSIONS = (".yml", ".yaml")
 
 RUN_STATE = {"running": False}
 RUN_LOCK = threading.Lock()
@@ -92,6 +88,31 @@ def local_roles() -> set[str]:
     if not ROLES_DIR.exists():
         return set()
     return {p.name for p in ROLES_DIR.iterdir() if p.is_dir()}
+
+
+def list_role_files(role: str) -> list[str]:
+    base = ROLES_DIR / role
+    if not base.exists():
+        return []
+    return sorted(
+        str(p.relative_to(base)).replace(os.sep, "/")
+        for p in base.rglob("*")
+        if p.is_file()
+    )
+
+
+def resolve_role_file(role: str, relpath: str) -> Path | None:
+    """Resout un chemin relatif a l'interieur d'un role, en verifiant
+    qu'il n'en sort jamais (pas de traversal via ../ ou chemin absolu) -
+    seule protection restante maintenant que n'importe quel fichier du
+    role est editable, pas juste 3 chemins fixes codes en dur."""
+    if role not in local_roles() or not relpath:
+        return None
+    base = (ROLES_DIR / role).resolve()
+    target = (base / relpath).resolve()
+    if target != base and base not in target.parents:
+        return None
+    return target
 
 
 def fetch_tags_safe() -> tuple[list[str], str | None]:
@@ -184,32 +205,49 @@ def api_roles_scaffold(tag: str):
 def api_role_files_get(role: str):
     if not ROLE_NAME_RE.match(role) or role not in local_roles():
         return jsonify({"error": f"'{role}' introuvable"}), 404
-    files = {}
-    for key, rel_path in ROLE_FILE_KEYS.items():
-        path = ROLES_DIR / role / rel_path
-        files[key] = path.read_text() if path.exists() else ""
-    return jsonify({"files": files})
+    return jsonify({"files": list_role_files(role)})
 
 
-@app.route("/api/roles/<role>/files/<key>", methods=["PUT"])
-def api_role_files_put(role: str, key: str):
-    if not ROLE_NAME_RE.match(role) or role not in local_roles():
-        return jsonify({"error": f"'{role}' introuvable"}), 404
-    if key not in ROLE_FILE_KEYS:
-        return jsonify({"error": "Fichier invalide"}), 400
+@app.route("/api/roles/<role>/file/<path:relpath>", methods=["GET"])
+def api_role_file_get(role: str, relpath: str):
+    target = resolve_role_file(role, relpath)
+    if target is None or not target.is_file():
+        return jsonify({"error": "Fichier introuvable"}), 404
+    return jsonify({"content": target.read_text()})
+
+
+@app.route("/api/roles/<role>/file/<path:relpath>", methods=["PUT"])
+def api_role_file_put(role: str, relpath: str):
+    target = resolve_role_file(role, relpath)
+    if target is None:
+        return jsonify({"error": "Chemin invalide (doit rester a l'interieur du role)"}), 400
 
     body = request.get_json(force=True, silent=True) or {}
     content = body.get("content", "")
-    try:
-        yaml.safe_load(content)
-    except yaml.YAMLError as exc:
-        return jsonify({"error": f"YAML invalide : {exc}"}), 400
 
-    path = ROLES_DIR / role / ROLE_FILE_KEYS[key]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(".tmp")
+    if target.suffix in YAML_EXTENSIONS:
+        try:
+            yaml.safe_load(content)
+        except yaml.YAMLError as exc:
+            return jsonify({"error": f"YAML invalide : {exc}"}), 400
+
+    # Ecriture atomique (tmp+rename) : sur dans ce cas, contrairement a
+    # order.yaml/site.yml (voir README) - roles/ est toujours monte comme
+    # un DOSSIER (jamais un fichier individuel), remplacer un fichier a
+    # l'interieur n'est jamais bloque par un mount Docker.
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = target.with_name(target.name + ".tmp")
     tmp_path.write_text(content)
-    os.replace(tmp_path, path)
+    os.replace(tmp_path, target)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/roles/<role>/file/<path:relpath>", methods=["DELETE"])
+def api_role_file_delete(role: str, relpath: str):
+    target = resolve_role_file(role, relpath)
+    if target is None or not target.is_file():
+        return jsonify({"error": "Fichier introuvable"}), 404
+    target.unlink()
     return jsonify({"ok": True})
 
 

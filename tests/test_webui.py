@@ -61,38 +61,98 @@ def test_api_roles_list_reports_bastion_error(tmp_path, monkeypatch):
     assert data["missing_tags"] == []
 
 
-def test_role_files_get_and_put_roundtrip(tmp_path, monkeypatch):
+def test_role_files_list_returns_all_files_recursively(tmp_path, monkeypatch):
     client = make_client(tmp_path, monkeypatch)
     role_dir = tmp_path / "roles" / "desktop"
     (role_dir / "tasks").mkdir(parents=True)
     (role_dir / "tasks" / "main.yml").write_text("---\n")
-    (role_dir / "defaults").mkdir(parents=True)
-    (role_dir / "defaults" / "main.yml").write_text("---\n")
-    (role_dir / "meta").mkdir(parents=True)
-    (role_dir / "meta" / "main.yml").write_text("---\n")
+    (role_dir / "templates").mkdir(parents=True)
+    (role_dir / "templates" / "foo.service.j2").write_text("[Unit]\n")
 
     res = client.get("/api/roles/desktop/files")
+
     assert res.status_code == 200
-    assert res.get_json()["files"]["tasks"] == "---\n"
+    assert res.get_json()["files"] == ["tasks/main.yml", "templates/foo.service.j2"]
+
+
+def test_role_file_get_and_put_roundtrip(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    role_dir = tmp_path / "roles" / "desktop"
+    (role_dir / "tasks").mkdir(parents=True)
+    (role_dir / "tasks" / "main.yml").write_text("---\n")
+
+    res = client.get("/api/roles/desktop/file/tasks/main.yml")
+    assert res.status_code == 200
+    assert res.get_json()["content"] == "---\n"
 
     res = client.put(
-        "/api/roles/desktop/files/tasks",
+        "/api/roles/desktop/file/tasks/main.yml",
         json={"content": "---\n- name: exemple\n  debug:\n    msg: hello\n"},
     )
     assert res.status_code == 200
     assert (role_dir / "tasks" / "main.yml").read_text() == "---\n- name: exemple\n  debug:\n    msg: hello\n"
 
 
-def test_role_files_put_rejects_invalid_yaml(tmp_path, monkeypatch):
+def test_role_file_put_creates_new_file_including_parent_dirs(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    (tmp_path / "roles" / "desktop").mkdir(parents=True)
+
+    res = client.put(
+        "/api/roles/desktop/file/templates/foo.service.j2",
+        json={"content": "[Unit]\nDescription=test\n"},
+    )
+
+    assert res.status_code == 200
+    assert (tmp_path / "roles" / "desktop" / "templates" / "foo.service.j2").read_text() == "[Unit]\nDescription=test\n"
+
+
+def test_role_file_put_rejects_invalid_yaml_for_yaml_files(tmp_path, monkeypatch):
     client = make_client(tmp_path, monkeypatch)
     role_dir = tmp_path / "roles" / "desktop"
     (role_dir / "tasks").mkdir(parents=True)
     (role_dir / "tasks" / "main.yml").write_text("---\n")
 
-    res = client.put("/api/roles/desktop/files/tasks", json={"content": "key: [unclosed"})
+    res = client.put("/api/roles/desktop/file/tasks/main.yml", json={"content": "key: [unclosed"})
 
     assert res.status_code == 400
     assert (role_dir / "tasks" / "main.yml").read_text() == "---\n"
+
+
+def test_role_file_put_does_not_validate_yaml_for_non_yaml_files(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    (tmp_path / "roles" / "desktop").mkdir(parents=True)
+
+    res = client.put(
+        "/api/roles/desktop/file/templates/foo.j2",
+        json={"content": "key: [unclosed - pas du YAML, un template Jinja2"},
+    )
+
+    assert res.status_code == 200
+
+
+def test_resolve_role_file_rejects_path_traversal(tmp_path, monkeypatch):
+    # Teste directement la fonction plutot que via HTTP : le client de
+    # test/les libs WSGI normalisent souvent ".." dans l'URL avant meme
+    # d'atteindre la route, ce qui masquerait un bug ici.
+    make_client(tmp_path, monkeypatch)
+    (tmp_path / "roles" / "desktop").mkdir(parents=True)
+    (tmp_path / "secret.txt").write_text("ne doit pas etre lisible")
+
+    assert webui.resolve_role_file("desktop", "../secret.txt") is None
+    assert webui.resolve_role_file("desktop", "../../secret.txt") is None
+    assert webui.resolve_role_file("desktop", "tasks/main.yml") is not None
+
+
+def test_role_file_delete_removes_file(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    role_dir = tmp_path / "roles" / "desktop"
+    (role_dir / "handlers").mkdir(parents=True)
+    (role_dir / "handlers" / "main.yml").write_text("---\n")
+
+    res = client.delete("/api/roles/desktop/file/handlers/main.yml")
+
+    assert res.status_code == 200
+    assert not (role_dir / "handlers" / "main.yml").exists()
 
 
 def test_scaffold_creates_role_from_tag(tmp_path, monkeypatch):

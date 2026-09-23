@@ -168,9 +168,12 @@ remplacement, un conteneur en plus dans le meme `docker-compose.yml`
 (memes dependances : ansible-core, execute `ansible-playbook` lui-meme
 en subprocess). Permet, sans repasser par le CLI/SSH a chaque fois :
 
-- **Roles** : liste des roles locaux, editeur texte brut par fichier
-  (`tasks/main.yml`, `defaults/main.yml`, `meta/main.yml`), validation
-  YAML avant sauvegarde.
+- **Roles** : liste des roles locaux, editeur texte brut pour **n'importe
+  quel fichier du role** (pas seulement `tasks/main.yml` - `handlers/`,
+  `templates/*.j2`, `vars/`, etc.), creation/suppression de fichier
+  depuis l'UI (chemin relatif libre), validation YAML avant sauvegarde
+  pour les fichiers `.yml`/`.yaml` uniquement (un `.j2` n'est pas du
+  YAML, pas de validation forcee dessus).
 - **Tags sans role** : detecte les tags Bastion sans role correspondant
   (meme calcul que `scripts/scaffold_roles.py`), bouton "Scaffolder"
   pour creer le squelette depuis l'UI.

@@ -203,6 +203,20 @@ button.secondary {
     font-weight: 700;
 }
 
+#role-files-list {
+    margin-bottom: 14px;
+}
+
+#role-new-file-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+}
+
 .role-file {
     display: flex;
     flex-direction: column;
