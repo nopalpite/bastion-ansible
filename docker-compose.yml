@@ -3,6 +3,12 @@
 # Pas de "up -d" : ce service est concu pour etre lance a la demande, pas
 # comme un daemon. Programmation (cron/scheduler) viendra plus tard si le
 # besoin se confirme.
+#
+# Le bind mount ci-dessous est pour le developpement local uniquement
+# (edite un role -> effet immediat, pas de rebuild) - il prend le pas
+# sur le contenu deja copie dans l'image par le Dockerfile. Un
+# deploiement qui consomme l'image publiee sans ce bind mount (ex:
+# expolab) reste fonctionnel grace a ce contenu integre.
 services:
   runner:
     build: .

@@ -103,9 +103,15 @@ fait.
 
 Declenchement manuel pour l'instant (`docker compose run`, pas de
 demon) - programmation (cron/scheduler) plus tard si le besoin se
-confirme. Le depot est monte en volume (lecture seule), jamais copie a
-l'image : editer un role/playbook prend effet immediatement, pas de
-rebuild.
+confirme.
+
+L'image publiee **integre deja** `site.yml`/`roles/`/`inventory/`/`scripts/`
+(copies par le Dockerfile) - elle est utilisable seule, sans checkout de
+ce depot (cas d'un deploiement qui consomme juste l'image, ex: expolab).
+En local, `docker-compose.yml` monte quand meme le depot par-dessus
+(bind mount, prioritaire sur le contenu de l'image) : editer un
+role/playbook prend effet immediatement, pas de rebuild - les deux
+usages cohabitent sans rien reconfigurer.
 
 ```bash
 cp .env.example .env   # renseigner BASTION_URL/BASTION_API_TOKEN

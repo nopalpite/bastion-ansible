@@ -1,6 +1,13 @@
-# Image du runner Ansible - execute site.yml contre le parc. Le depot
-# est monte en volume (docker-compose.yml), jamais copie a l'image :
-# editer un role/playbook prend effet immediatement, pas de rebuild.
+# Image du runner Ansible - execute site.yml contre le parc.
+#
+# Le contenu (site.yml, roles/, inventory/, scripts/, ansible.cfg) est
+# COPIE dans l'image : necessaire pour qu'une image publiee (GHCR) soit
+# utilisable seule, sans avoir a cloner ce depot a cote (ex: deploiement
+# expolab, qui consomme l'image sans checkout du code source). En
+# developpement local, docker-compose.yml monte quand meme le depot par
+# dessus (bind mount, prioritaire sur le contenu de l'image) : editer un
+# role/playbook prend toujours effet immediatement sans rebuild - les
+# deux usages cohabitent sans configuration differente.
 #
 # Existe aussi pour contourner une limitation reelle : ansible-core ne
 # tourne pas nativement sur Windows (os.get_blocking non supporte) - ce
@@ -16,5 +23,9 @@ RUN apt-get update -qq && \
 WORKDIR /repo
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+COPY site.yml ansible.cfg ./
+COPY roles/ roles/
+COPY inventory/ inventory/
+COPY scripts/ scripts/
 
 ENTRYPOINT ["/entrypoint.sh"]
