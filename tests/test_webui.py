@@ -12,10 +12,16 @@ _spec.loader.exec_module(webui)
 def make_client(tmp_path, monkeypatch):
     roles_dir = tmp_path / "roles"
     runs_dir = tmp_path / "runs"
+    order_path = tmp_path / "order.yaml"
+    site_path = tmp_path / "site.yml"
     monkeypatch.setattr(webui, "ROLES_DIR", roles_dir)
     monkeypatch.setattr(webui, "RUNS_DIR", runs_dir)
     monkeypatch.setattr(webui, "RUNS_INDEX", runs_dir / "index.yaml")
+    monkeypatch.setattr(webui, "ORDER_PATH", order_path)
+    monkeypatch.setattr(webui, "SITE_YML", site_path)
     monkeypatch.setattr(webui.scaffold_roles, "ROLES_DIR", roles_dir)
+    monkeypatch.setattr(webui.scaffold_roles, "ORDER_PATH", order_path)
+    monkeypatch.setattr(webui.scaffold_roles, "SITE_PATH", site_path)
     webui.app.config["TESTING"] = True
     return webui.app.test_client()
 
@@ -98,6 +104,42 @@ def test_scaffold_creates_role_from_tag(tmp_path, monkeypatch):
     assert res.status_code == 201
     assert data["role"] == "raspberry_pi"
     assert (tmp_path / "roles" / "raspberry_pi" / "tasks" / "main.yml").exists()
+    assert webui.scaffold_roles.load_order() == ["raspberry_pi"]
+    assert (tmp_path / "site.yml").exists()
+
+
+def test_api_order_get_returns_current_order(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    (tmp_path / "roles" / "a").mkdir(parents=True)
+    (tmp_path / "roles" / "b").mkdir(parents=True)
+    webui.scaffold_roles.save_order(["a", "b"])
+
+    res = client.get("/api/order")
+
+    assert res.get_json()["order"] == ["a", "b"]
+
+
+def test_api_order_put_reorders_and_regenerates_site_yml(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    (tmp_path / "roles" / "a").mkdir(parents=True)
+    (tmp_path / "roles" / "b").mkdir(parents=True)
+    webui.scaffold_roles.save_order(["a", "b"])
+
+    res = client.put("/api/order", json={"order": ["b", "a"]})
+
+    assert res.status_code == 200
+    assert webui.scaffold_roles.load_order() == ["b", "a"]
+    plays = webui.yaml.safe_load((tmp_path / "site.yml").read_text())
+    assert [p["hosts"] for p in plays] == ["b", "a"]
+
+
+def test_api_order_put_rejects_mismatched_role_set(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    (tmp_path / "roles" / "a").mkdir(parents=True)
+
+    res = client.put("/api/order", json={"order": ["a", "unknown"]})
+
+    assert res.status_code == 400
 
 
 def test_scaffold_rejects_invalid_tag(tmp_path, monkeypatch):

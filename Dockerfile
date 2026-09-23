@@ -23,15 +23,17 @@ RUN apt-get update -qq && \
 WORKDIR /repo
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-COPY site.yml ansible.cfg ./
+COPY site.yml order.yaml ansible.cfg ./
 COPY roles/ roles/
 COPY inventory/ inventory/
 COPY scripts/ scripts/
 COPY webui/ webui/
-# Copie de reference pour le seed initial de roles/ dans un environnement
-# sans checkout local (ex: expolab) - voir webui/app.py:seed_roles_if_empty.
-# Jamais utilisee si roles/ est deja peuple (bind mount local, ou deja
-# seed lors d'un demarrage precedent).
+# Copies de reference pour le seed initial (roles/, order.yaml, site.yml)
+# dans un environnement sans checkout local (ex: expolab) - voir
+# webui/app.py:seed_state_if_empty. Jamais utilisees si le fichier/dossier
+# monte est deja peuple (bind mount local, ou deja seed precedemment).
 COPY roles/ /opt/roles-seed/
+COPY order.yaml /opt/order-seed.yaml
+COPY site.yml /opt/site-seed.yml
 
 ENTRYPOINT ["/entrypoint.sh"]

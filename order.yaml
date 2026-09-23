@@ -1,0 +1,10 @@
+# Source de verite de l'ordre d'execution des roles - une machine avec
+# plusieurs tags recoit chaque role dans cet ordre (empilable, ex:
+# "display" avant "gpio" pour installer l'environnement graphique avant
+# la stack GPIO qui en depend). Edite a la main ou via le webui
+# (page "Ordre d'execution") - jamais site.yml directement, regenere par
+# scripts/render_site_yml.py a chaque changement.
+order:
+  - common
+  - desktop
+  - gpio

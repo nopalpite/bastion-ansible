@@ -28,15 +28,19 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "inventory"))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import bastion_inventory  # noqa: E402
+import render_site_yml  # noqa: E402
 import scaffold_roles  # noqa: E402
 
 app = Flask(__name__)
 
 ROLES_DIR = REPO_ROOT / "roles"
 ROLES_SEED_DIR = Path("/opt/roles-seed")
+ORDER_PATH = REPO_ROOT / "order.yaml"
+ORDER_SEED_PATH = Path("/opt/order-seed.yaml")
+SITE_YML = REPO_ROOT / "site.yml"
+SITE_SEED_PATH = Path("/opt/site-seed.yml")
 RUNS_DIR = REPO_ROOT / "runs"
 RUNS_INDEX = RUNS_DIR / "index.yaml"
-SITE_YML = REPO_ROOT / "site.yml"
 SSH_KEY_SRC = REPO_ROOT / "secrets" / "automation_ed25519"
 SSH_KEY_RUN = Path("/tmp/automation_ed25519")
 
@@ -52,17 +56,25 @@ RUN_STATE = {"running": False}
 RUN_LOCK = threading.Lock()
 
 
-def seed_roles_if_empty() -> None:
+def seed_state_if_empty() -> None:
     """Premiere execution sans checkout local (ex: expolab, roles/ monte
-    vide) : copie la reference bakee a la construction de l'image. Ne
-    touche jamais un roles/ deja peuple (checkout local en dev, ou un
-    second demarrage dans un environnement deja seed)."""
-    if ROLES_DIR.exists() and any(ROLES_DIR.iterdir()):
-        return
-    if not ROLES_SEED_DIR.exists():
-        return
-    ROLES_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(ROLES_SEED_DIR, ROLES_DIR, dirs_exist_ok=True)
+    vide) : copie les references bakees a la construction de l'image
+    (roles/, order.yaml, site.yml). Ne touche jamais un fichier/dossier
+    deja peuple (checkout local en dev, ou un second demarrage dans un
+    environnement deja seed)."""
+    if (not ROLES_DIR.exists() or not any(ROLES_DIR.iterdir())) and ROLES_SEED_DIR.exists():
+        ROLES_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(ROLES_SEED_DIR, ROLES_DIR, dirs_exist_ok=True)
+
+    # .stat().st_size == 0 (pas juste "absent") : un deploiement peut
+    # avoir pre-cree ces fichiers vides via `touch` pour que le bind
+    # mount d'un FICHIER (pas un dossier) ne se transforme pas en dossier
+    # vide au demarrage (voir server/deploy-server.sh dans expolab).
+    if (not ORDER_PATH.exists() or ORDER_PATH.stat().st_size == 0) and ORDER_SEED_PATH.exists():
+        shutil.copy(ORDER_SEED_PATH, ORDER_PATH)
+
+    if (not SITE_YML.exists() or SITE_YML.stat().st_size == 0) and SITE_SEED_PATH.exists():
+        shutil.copy(SITE_SEED_PATH, SITE_YML)
 
 
 def prepare_ssh_key() -> None:
@@ -201,6 +213,23 @@ def api_role_files_put(role: str, key: str):
     return jsonify({"ok": True})
 
 
+@app.route("/api/order", methods=["GET"])
+def api_order_get():
+    return jsonify({"order": scaffold_roles.load_order()})
+
+
+@app.route("/api/order", methods=["PUT"])
+def api_order_put():
+    body = request.get_json(force=True, silent=True) or {}
+    order = body.get("order")
+    if not isinstance(order, list) or set(order) != local_roles():
+        return jsonify({"error": "L'ordre doit contenir exactement les roles existants, sans doublon ni omission."}), 400
+
+    scaffold_roles.save_order(order)
+    render_site_yml.render_to_file(order, SITE_YML)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/runs", methods=["GET"])
 def api_runs_list():
     return jsonify({"runs": sorted(load_runs(), key=lambda r: r["started_at"], reverse=True)})
@@ -240,6 +269,6 @@ def api_runs_log(run_id: str):
 
 
 if __name__ == "__main__":
-    seed_roles_if_empty()
+    seed_state_if_empty()
     prepare_ssh_key()
     app.run(host="0.0.0.0", port=5055)

@@ -1,4 +1,4 @@
-# Pas de dependance runtime - bastion_inventory.py n'utilise que la
-# stdlib (urllib, json). Fichier garde pour coherence avec le pipeline CI
-# de bastion (pip-audit -r requirements.txt) et pour le jour ou une vraie
-# dependance apparait.
+# pyyaml : lu/ecrit par scripts/scaffold_roles.py et
+# scripts/render_site_yml.py (order.yaml) ainsi que webui/app.py.
+# bastion_inventory.py lui-meme reste stdlib pur (urllib, json).
+pyyaml==6.0.2

@@ -73,20 +73,43 @@ Les roles suivent les tags **reels** presents dans Bastion plutot que
 d'etre maintenus a la main en parallele (meme logique que l'inventaire :
 une seule source de verite). `scripts/scaffold_roles.py` interroge
 `GET /api/machines`, calcule les tags via la meme logique que
-l'inventaire (`bastion_inventory.build_inventory`), et cree le squelette
+l'inventaire (`bastion_inventory.build_inventory`), cree le squelette
 (`tasks/`, `defaults/`, `meta/`) de tout role manquant - idempotent,
-ne touche jamais un role deja present :
+ne touche jamais un role deja present - et l'**ajoute automatiquement**
+a la fin de `order.yaml` (voir ci-dessous) :
 
 ```bash
 BASTION_URL=... BASTION_API_TOKEN=... ./scripts/scaffold_roles.py
 ```
 
-## Playbook
+## Ordre d'execution (`order.yaml`) et `site.yml`
 
-`site.yml` relie inventaire et roles : `common` sur tout le parc, puis
-un play par typologie (`hosts: <tag>`). Un nouveau tag scaffolde par
-`scripts/scaffold_roles.py` doit etre ajoute a la main ici - les plays
-Ansible ne peuvent pas boucler sur des groupes decouverts dynamiquement.
+Une machine avec plusieurs tags recoit chaque role dans l'ordre defini
+par `order.yaml` (**empilable** - ex: `display` avant `gpio` pour
+installer l'environnement graphique avant une stack qui en depend) :
+
+```yaml
+order:
+  - common
+  - display
+  - gpio
+```
+
+`site.yml` est **genere** depuis `order.yaml` par
+`scripts/render_site_yml.py` (meme principe que
+`server/render-caddyfile.py` dans expolab : `services.yaml` ->
+`Caddyfile`) - jamais edite a la main pour la partie plays, ecrase au
+prochain scaffold/reordonnancement :
+
+```bash
+./scripts/render_site_yml.py   # regenere site.yml depuis order.yaml
+```
+
+`order.yaml` reste git-tracked (comme `site.yml`, qui continue de
+fonctionner des un checkout frais sans etape de generation
+prealable). Le webui (page "Ordre d'execution") permet de reordonner
+sans toucher a aucun fichier a la main - regenere `site.yml`
+automatiquement a chaque changement.
 
 ```bash
 ansible-playbook site.yml               # tout le parc
@@ -143,6 +166,8 @@ en subprocess). Permet, sans repasser par le CLI/SSH a chaque fois :
 - **Tags sans role** : detecte les tags Bastion sans role correspondant
   (meme calcul que `scripts/scaffold_roles.py`), bouton "Scaffolder"
   pour creer le squelette depuis l'UI.
+- **Ordre d'execution** : reordonne `order.yaml` (boutons monter/descendre
+  par role), regenere `site.yml` automatiquement a chaque changement.
 - **Runs** : declenche `site.yml` (tout le parc ou `--limit <tag>`),
   historique avec statut et logs (`runs/index.yaml` + un fichier de log
   par run, non versionnes).
@@ -183,5 +208,6 @@ basique devant.
 - [x] Pipeline docker-build.yml (GHCR, multi-arch)
 - [x] Valide de bout en bout dans expolab (inventaire, auth, become, execution reussis contre un faux Pi)
 - [x] Interface web (`webui/`) : roles, declenchement de runs, historique
+- [x] Ordre d'execution configurable (`order.yaml` -> `site.yml` genere), editable depuis l'UI
 - [ ] Contenu reel des roles (taches) - a definir au fur et a mesure des tests de playbook
 - [ ] Programmation du runner (cron/scheduler) - si le besoin se confirme

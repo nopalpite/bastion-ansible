@@ -13,13 +13,20 @@ existants), se contente d'ajouter ce qui manque.
 Usage:
     BASTION_URL=... BASTION_API_TOKEN=... ./scripts/scaffold_roles.py
 """
+import os
 import sys
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "inventory"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bastion_inventory
+import render_site_yml
 
 ROLES_DIR = Path(__file__).resolve().parent.parent / "roles"
+ORDER_PATH = Path(__file__).resolve().parent.parent / "order.yaml"
+SITE_PATH = Path(__file__).resolve().parent.parent / "site.yml"
 
 ROLE_SKELETON = {
     "tasks/main.yml": "---\n# Taches pour le role {role}\n",
@@ -34,6 +41,19 @@ def existing_roles() -> set[str]:
     return {p.name for p in ROLES_DIR.iterdir() if p.is_dir()}
 
 
+def load_order() -> list[str]:
+    if not ORDER_PATH.exists():
+        return []
+    data = yaml.safe_load(ORDER_PATH.read_text()) or {}
+    return data.get("order", [])
+
+
+def save_order(order: list[str]) -> None:
+    tmp_path = ORDER_PATH.with_suffix(".tmp")
+    tmp_path.write_text(yaml.safe_dump({"order": order}, sort_keys=False))
+    os.replace(tmp_path, ORDER_PATH)
+
+
 def scaffold(role: str) -> None:
     role_dir = ROLES_DIR / role
     for rel_path, template in ROLE_SKELETON.items():
@@ -42,6 +62,15 @@ def scaffold(role: str) -> None:
         if not target.exists():
             target.write_text(template.format(role=role))
     print(f"[+] role '{role}' cree sous {role_dir}")
+
+    # Ajoute a la fin de la sequence d'execution si absent, et regenere
+    # site.yml en consequence - order.yaml reste la seule source de
+    # verite de l'ordre, jamais site.yml edite a la main.
+    order = load_order()
+    if role not in order:
+        order.append(role)
+        save_order(order)
+    render_site_yml.render_to_file(order, SITE_PATH)
 
 
 def main() -> None:

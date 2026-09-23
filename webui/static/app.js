@@ -91,6 +91,7 @@ async function scaffoldTag(tag) {
         return;
     }
     loadRoles();
+    loadOrder();
 }
 
 async function openRoleEditor(role) {
@@ -155,6 +156,66 @@ document.getElementById("role-save-btn").addEventListener("click", async () => {
     }
     btn.disabled = false;
 });
+
+async function loadOrder() {
+    const list = document.getElementById("order-list");
+    try {
+        const res = await fetch("/api/order");
+        const data = await res.json();
+        renderOrder(data.order || []);
+    } catch (e) {
+        list.innerHTML = '<p class="status-error">Erreur de chargement</p>';
+    }
+}
+
+function renderOrder(order) {
+    const list = document.getElementById("order-list");
+    if (!order.length) {
+        list.innerHTML = '<p class="empty">Aucun role</p>';
+        return;
+    }
+    list.innerHTML = `<div class="card-list">${order.map((role, i) => `
+        <div class="card">
+            <div class="card-title">
+                <span class="order-position">${i + 1}</span>
+                ${escapeHtml(role)}
+            </div>
+            <div class="card-actions">
+                <button class="secondary" data-move-up="${i}" ${i === 0 ? "disabled" : ""}>Monter</button>
+                <button class="secondary" data-move-down="${i}" ${i === order.length - 1 ? "disabled" : ""}>Descendre</button>
+            </div>
+        </div>
+    `).join("")}</div>`;
+    list.querySelectorAll("button[data-move-up]").forEach(btn => {
+        btn.addEventListener("click", () => moveOrder(order, parseInt(btn.dataset.moveUp, 10), -1));
+    });
+    list.querySelectorAll("button[data-move-down]").forEach(btn => {
+        btn.addEventListener("click", () => moveOrder(order, parseInt(btn.dataset.moveDown, 10), 1));
+    });
+}
+
+async function moveOrder(order, index, direction) {
+    const newOrder = order.slice();
+    const target = index + direction;
+    [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+
+    const status = document.getElementById("order-status");
+    const res = await fetch("/api/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order: newOrder }),
+    });
+    const data = await res.json();
+    status.hidden = false;
+    if (!res.ok) {
+        status.className = "status status-error";
+        status.textContent = data.error || "Erreur";
+        return;
+    }
+    status.className = "status status-ok";
+    status.textContent = "Ordre mis a jour.";
+    renderOrder(newOrder);
+}
 
 async function loadRuns() {
     const list = document.getElementById("runs-list");
@@ -236,4 +297,5 @@ document.getElementById("run-form").addEventListener("submit", async (e) => {
 });
 
 loadRoles();
+loadOrder();
 loadRuns();
