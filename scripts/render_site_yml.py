@@ -17,10 +17,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_ORDER_PATH = REPO_ROOT / "order.yaml"
 DEFAULT_SITE_PATH = REPO_ROOT / "site.yml"
 
-PLAY_NAMES = {
-    "common": "Base commune a tout le parc",
-}
-
 HEADER = (
     "# GENERE par scripts/render_site_yml.py a partir de order.yaml - ne pas\n"
     "# editer les plays ci-dessous a la main, elles seraient ecrasees au\n"
@@ -42,15 +38,15 @@ def load_order(path: Path = DEFAULT_ORDER_PATH) -> list[str]:
 
 
 def render(order: list[str]) -> str:
-    plays = []
-    for role in order:
-        hosts = "all" if role == "common" else role
-        plays.append({
-            "name": PLAY_NAMES.get(role, f"Typologie {role}"),
-            "hosts": hosts,
+    plays = [
+        {
+            "name": f"Typologie {role}",
+            "hosts": role,
             "become": True,
             "roles": [role],
-        })
+        }
+        for role in order
+    ]
     body = yaml.safe_dump(plays, sort_keys=False, default_flow_style=False)
     return f"---\n{HEADER}\n{body}"
 

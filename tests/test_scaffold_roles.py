@@ -55,7 +55,7 @@ def test_scaffold_does_not_duplicate_order_entry(tmp_path, monkeypatch):
     assert scaffold_roles.load_order() == ["kiosk"]
 
 
-def test_main_scaffolds_common_and_tags_from_api(tmp_path, monkeypatch):
+def test_main_scaffolds_tags_from_api(tmp_path, monkeypatch):
     patch_paths(tmp_path, monkeypatch)
     monkeypatch.setattr(
         scaffold_roles.bastion_inventory,
@@ -65,14 +65,12 @@ def test_main_scaffolds_common_and_tags_from_api(tmp_path, monkeypatch):
 
     scaffold_roles.main()
 
-    assert (tmp_path / "roles" / "common" / "tasks" / "main.yml").exists()
     assert (tmp_path / "roles" / "kiosk" / "tasks" / "main.yml").exists()
-    assert scaffold_roles.load_order() == ["common", "kiosk"]
+    assert scaffold_roles.load_order() == ["kiosk"]
 
 
 def test_main_skips_tags_that_already_have_a_role(tmp_path, monkeypatch, capsys):
     patch_paths(tmp_path, monkeypatch)
-    (tmp_path / "roles" / "common").mkdir(parents=True)
     (tmp_path / "roles" / "kiosk").mkdir(parents=True)
     monkeypatch.setattr(
         scaffold_roles.bastion_inventory,

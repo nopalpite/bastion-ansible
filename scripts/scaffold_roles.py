@@ -80,9 +80,6 @@ def main() -> None:
 
     existing = existing_roles()
 
-    if "common" not in existing:
-        scaffold("common")
-
     new_tags = [t for t in tags if t not in existing]
     if not new_tags:
         print("Aucun nouveau tag detecte - roles deja a jour.")

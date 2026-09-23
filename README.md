@@ -64,10 +64,10 @@ private_key_file = ./secrets/automation_ed25519
 
 ## Roles
 
-Un role par typologie de machine (tag), plus un role `common` (mises a
-jour de securite, agent de supervision...) applique a tout le parc en
-amont des roles specifiques. Structure classique Ansible :
-`roles/<typologie>/`.
+Un role par typologie de machine (tag), strictement lie a son groupe
+(`hosts: <tag>`) - aucun role "commun" applique inconditionnellement a
+tout le parc (retire volontairement : pas de tag Bastion ne le
+justifiait). Structure classique Ansible : `roles/<typologie>/`.
 
 Les roles suivent les tags **reels** presents dans Bastion plutot que
 d'etre maintenus a la main en parallele (meme logique que l'inventaire :
@@ -90,7 +90,6 @@ installer l'environnement graphique avant une stack qui en depend) :
 
 ```yaml
 order:
-  - common
   - display
   - gpio
 ```
@@ -202,7 +201,7 @@ basique devant.
 - [x] Inventaire dynamique (`inventory/bastion_inventory.py`)
 - [x] Cle SSH "automatisation" generee (distribution sur le parc encore a faire)
 - [x] Outillage de scaffold des roles (`scripts/scaffold_roles.py`)
-- [x] Premiers roles generes depuis Bastion : `common`, `desktop`, `gpio` (squelettes vides, taches a ecrire)
+- [x] Premiers roles generes depuis Bastion : `desktop`, `gpio` (squelettes vides, taches a ecrire)
 - [x] Playbook d'entree (`site.yml`) reliant inventaire et roles
 - [x] Runner conteneurise, declenchement manuel (`docker compose run`)
 - [x] Pipeline docker-build.yml (GHCR, multi-arch)

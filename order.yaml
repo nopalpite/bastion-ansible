@@ -5,6 +5,5 @@
 # (page "Ordre d'execution") - jamais site.yml directement, regenere par
 # scripts/render_site_yml.py a chaque changement.
 order:
-  - common
   - desktop
   - gpio

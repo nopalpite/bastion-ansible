@@ -9,11 +9,6 @@
 #   ansible-playbook site.yml --limit gpio   # une seule typologie
 #   ansible-playbook site.yml --check        # dry-run
 
-- name: Base commune a tout le parc
-  hosts: all
-  become: true
-  roles:
-  - common
 - name: Typologie desktop
   hosts: desktop
   become: true
