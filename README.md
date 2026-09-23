@@ -86,5 +86,6 @@ BASTION_URL=... BASTION_API_TOKEN=... ./scripts/scaffold_roles.py
 - [x] Bastion expose `GET /api/machines`
 - [x] Inventaire dynamique (`inventory/bastion_inventory.py`)
 - [x] Cle SSH "automatisation" generee (distribution sur le parc encore a faire)
-- [x] Outillage de scaffold des roles (`scripts/scaffold_roles.py`) - a executer contre le vrai Bastion pour generer les premiers roles
+- [x] Outillage de scaffold des roles (`scripts/scaffold_roles.py`)
+- [x] Premiers roles generes depuis Bastion : `common`, `desktop`, `gpio` (squelettes vides, taches a ecrire)
 - [ ] Execution du runner (conteneur, declenchement manuel puis programme)
