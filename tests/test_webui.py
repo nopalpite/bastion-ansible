@@ -115,3 +115,23 @@ def test_runs_create_rejects_when_already_running(tmp_path, monkeypatch):
     res = client.post("/api/runs", json={})
 
     assert res.status_code == 409
+
+
+def test_execute_run_appends_extra_args_from_env(tmp_path, monkeypatch):
+    make_client(tmp_path, monkeypatch)
+    monkeypatch.setenv("BASTION_ANSIBLE_EXTRA_ARGS", "--extra-vars ansible_become_pass=raspberry")
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+
+        class Result:
+            returncode = 0
+        return Result()
+
+    monkeypatch.setattr(webui.subprocess, "run", fake_run)
+
+    webui.execute_run("20260101T000000Z", "gpio")
+
+    assert captured["cmd"][-4:] == ["--limit", "gpio", "--extra-vars", "ansible_become_pass=raspberry"]

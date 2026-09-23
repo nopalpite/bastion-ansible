@@ -13,6 +13,7 @@ son environnement de deploiement.
 """
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -109,10 +110,20 @@ def save_runs(runs: list[dict]) -> None:
 
 
 def execute_run(run_id: str, limit: str | None) -> None:
+    RUNS_DIR.mkdir(parents=True, exist_ok=True)
     log_path = RUNS_DIR / f"{run_id}.log"
     cmd = ["ansible-playbook", str(SITE_YML)]
     if limit:
         cmd += ["--limit", limit]
+    # Args supplementaires fixes pour tout run declenche par l'UI (ex:
+    # --extra-vars ansible_become_pass=... pour un environnement de demo
+    # ou le mot de passe sudo est connu/partage) - jamais une valeur par
+    # defaut de ce depot, uniquement ce qu'un deploiement fournit via son
+    # propre environnement (voir server/stacks/bastion-ansible dans
+    # expolab pour un exemple d'utilisation).
+    extra_args = os.environ.get("BASTION_ANSIBLE_EXTRA_ARGS", "")
+    if extra_args:
+        cmd += shlex.split(extra_args)
     try:
         with open(log_path, "w") as logf:
             result = subprocess.run(cmd, stdout=logf, stderr=subprocess.STDOUT, cwd=REPO_ROOT)

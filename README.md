@@ -151,6 +151,12 @@ en subprocess). Permet, sans repasser par le CLI/SSH a chaque fois :
 docker compose up webui   # http://localhost:5055
 ```
 
+`BASTION_ANSIBLE_EXTRA_ARGS` (optionnelle) : arguments supplementaires
+ajoutes a chaque run declenche par l'UI (ex: `--extra-vars
+ansible_become_pass=...` pour un environnement de demo au mot de passe
+sudo connu/partage) - jamais de valeur par defaut dans ce depot,
+uniquement ce qu'un deploiement fournit via son propre environnement.
+
 En local, le depot est monte en **lecture-ecriture** (contrairement au
 `:ro` du runner) : editer un role via l'UI edite directement les
 fichiers du checkout git. Dans un environnement sans checkout (ex:
