@@ -1,0 +1,9 @@
+# Cle SSH dediee a l'automatisation (Phase 3 de la roadmap) - jamais
+# commitee, distribuee separement de ce depot.
+*.pem
+id_automation*
+
+# Etat local Ansible, rien a versionner.
+*.retry
+.vault_pass*
+__pycache__/
