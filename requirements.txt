@@ -1,0 +1,4 @@
+# Pas de dependance runtime - bastion_inventory.py n'utilise que la
+# stdlib (urllib, json). Fichier garde pour coherence avec le pipeline CI
+# de bastion (pip-audit -r requirements.txt) et pour le jour ou une vraie
+# dependance apparait.
